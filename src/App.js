@@ -1,21 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { auth, provider } from './firebase';
-import { signInWithRedirect, signOut, getRedirectResult, onAuthStateChanged } from 'firebase/auth';
+import { signInWithRedirect, signOut, onAuthStateChanged } from 'firebase/auth';
 
 function App() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    getRedirectResult(auth)
-      .then((result) => {
-        if (result?.user) {
-          setUser(result.user);
-        }
-      })
-      .catch((error) => {
-        console.error("Errore nel login:", error);
-      });
-
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
     });
