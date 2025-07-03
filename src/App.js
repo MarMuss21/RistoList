@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { auth, provider } from './firebase';
-import { signInWithRedirect, signOut, onAuthStateChanged } from 'firebase/auth';
+import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 
 function App() {
   const [user, setUser] = useState(null);
 
+  // Ascolta lo stato di autenticazione
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -13,10 +14,18 @@ function App() {
     return () => unsubscribe();
   }, []);
 
+  // Funzione di login con popup
   const login = () => {
-    signInWithRedirect(auth, provider);
+    signInWithPopup(auth, provider)
+      .then((result) => {
+        setUser(result.user);
+      })
+      .catch((error) => {
+        console.error("Errore nel login:", error);
+      });
   };
 
+  // Logout
   const logout = () => {
     signOut(auth).catch((error) => {
       console.error("Errore nel logout:", error);
