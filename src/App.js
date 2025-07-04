@@ -1,28 +1,30 @@
 import React, { useState, useEffect } from "react";
 import { auth, provider } from "./firebase";
 import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
+import GroupsList from "./GroupsList";
 
-import GroupsList       from "./GroupsList";
-import RestaurantSearch from "./RestaurantSearch";
-import RestaurantList   from "./RestaurantList";
-
-function App() {
+export default function App() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-
-    return () => unsubscribe();
+    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
+    return unsub;
   }, []);
 
-  const login = () => {
-    signInWithPopup(auth, provider).catch(console.error);
+  const login = async () => {
+    try {
+      await signInWithPopup(auth, provider);
+    } catch (err) {
+      console.error("Errore nel login:", err);
+    }
   };
 
-  const logout = () => {
-    signOut(auth).catch(console.error);
+  const logout = async () => {
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error("Errore nel logout:", err);
+    }
   };
 
   return (
@@ -43,5 +45,3 @@ function App() {
     </div>
   );
 }
-
-export default App;
