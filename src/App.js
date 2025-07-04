@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { auth, provider } from './firebase';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import GroupsList from './GroupsList';
 
 function App() {
   const [user, setUser] = useState(null);
 
-  // Ascolta lo stato di autenticazione
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -14,22 +14,12 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  // Funzione di login con popup
   const login = () => {
-    signInWithPopup(auth, provider)
-      .then((result) => {
-        setUser(result.user);
-      })
-      .catch((error) => {
-        console.error("Errore nel login:", error);
-      });
+    signInWithPopup(auth, provider).catch(console.error);
   };
 
-  // Logout
   const logout = () => {
-    signOut(auth).catch((error) => {
-      console.error("Errore nel logout:", error);
-    });
+    signOut(auth).catch(console.error);
   };
 
   return (
@@ -39,9 +29,7 @@ function App() {
         <>
           <p>Benvenuto, {user.displayName}</p>
           <button onClick={logout} style={{ padding: '0.5rem 1rem' }}>Logout</button>
-          <div style={{ marginTop: '2rem' }}>
-            <p>Qui potrai vedere gruppi e ristoranti salvati con Firestore.</p>
-          </div>
+          <GroupsList user={user} />
         </>
       ) : (
         <>
