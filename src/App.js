@@ -1,30 +1,25 @@
-import React, { useState, useEffect } from "react";
-import { auth, provider } from "./firebase";
-import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
-import GroupsList from "./GroupsList";
+import React, { useState, useEffect } from 'react';
+import { auth, provider } from './firebase';
+import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import GroupsList from './GroupsList';
 
-export default function App() {
+function App() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
-    return unsub;
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  const login = async () => {
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (err) {
-      console.error("Errore nel login:", err);
-    }
+  const login = () => {
+    signInWithPopup(auth, provider).catch(console.error);
   };
 
-  const logout = async () => {
-    try {
-      await signOut(auth);
-    } catch (err) {
-      console.error("Errore nel logout:", err);
-    }
+  const logout = () => {
+    signOut(auth).catch(console.error);
   };
 
   return (
@@ -45,3 +40,5 @@ export default function App() {
     </div>
   );
 }
+
+export default App;
