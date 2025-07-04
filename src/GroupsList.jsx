@@ -81,5 +81,6 @@ export default function GroupsList({ user }) {
           <RestaurantList   user={user} groupId={selectedGroupId} />
         </>
       )}
-    </div>
+</div>
+  );
 }
