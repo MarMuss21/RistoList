@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { auth, provider } from './firebase';
-import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
-import GroupsList from './GroupsList';
+import React, { useState, useEffect } from "react";
+import { auth, provider } from "./firebase";
+import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
+
+import GroupsList       from "./GroupsList";
+import RestaurantSearch from "./RestaurantSearch";
+import RestaurantList   from "./RestaurantList";
 
 function App() {
   const [user, setUser] = useState(null);
