@@ -3,7 +3,7 @@ import { LoadScript, Autocomplete } from "@react-google-maps/api";
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "./firebase";
 
-const GOOGLE_API_KEY = "INSERISCI_LA_TUA_API_KEY"; // <-- Sostituisci con la tua key
+const GOOGLE_API_KEY = "AIzaSyDia3UCyD4p4i8Dc-zS-2Eg9OWbrWeL4KE"; // <-- la tua API Key
 
 export default function RestaurantSearch({ groupId, user }) {
   const autocompleteRef = useRef(null);
@@ -15,7 +15,6 @@ export default function RestaurantSearch({ groupId, user }) {
   const [placeSelected, setPlaceSelected] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Quando selezioni dalla tendina Google
   function handlePlaceChanged() {
     const place = autocompleteRef.current.getPlace();
     if (!place) return;
@@ -23,12 +22,11 @@ export default function RestaurantSearch({ groupId, user }) {
     setFields({
       name: place.name || "",
       address: place.formatted_address || "",
-      website: (place.website || (place.url ? place.url : "")) // url fallback
+      website: (place.website || (place.url ? place.url : ""))
     });
     setPlaceSelected(true);
   }
 
-  // Per gestire input manuale (non Google)
   function handleFieldChange(e) {
     setFields({ ...fields, [e.target.name]: e.target.value });
     setPlaceSelected(false);
