@@ -4,7 +4,7 @@ import { db } from "./firebase";
 
 export default function RestaurantList({ groupId }) {
   const [restaurants, setRestaurants] = useState([]);
-  const [selected, setSelected] = useState(null);
+  const [expanded, setExpanded] = useState(null);
 
   useEffect(() => {
     if (!groupId) return setRestaurants([]);
@@ -20,33 +20,35 @@ export default function RestaurantList({ groupId }) {
   if (!groupId) return null;
   return (
     <div>
-      <h3>Ristoranti nel gruppo</h3>
-      <ul style={{ padding: 0 }}>
+      <h3>Ristoranti aggiunti</h3>
+      <ul style={{ padding: 0, listStyle: "none" }}>
+        {restaurants.length === 0 && <div style={{ color: "#777" }}>Nessun ristorante nel gruppo.</div>}
         {restaurants.map(r => (
           <li
             key={r.id}
-            onClick={() => setSelected(selected === r.id ? null : r.id)}
-            style={{
-              cursor: "pointer",
-              fontWeight: selected === r.id ? "bold" : "normal",
-              marginBottom: 4,
-              listStyle: "none"
-            }}
+            style={{ marginBottom: 10, cursor: "pointer" }}
+            onClick={() => setExpanded(expanded === r.id ? null : r.id)}
           >
-            {r.name}
-            {selected === r.id && (
-              <div style={{ marginLeft: 16, fontWeight: "normal", marginTop: 8, marginBottom: 8 }}>
-                <b>Indirizzo:</b> {r.address || "-"} <br />
+            <span style={{
+              textDecoration: "underline",
+              color: "#0074D9",
+              fontWeight: 500
+            }}>{r.name}</span>
+            {expanded === r.id && (
+              <div style={{
+                border: "1px solid #eee",
+                padding: 10,
+                borderRadius: 6,
+                background: "#fafaff",
+                marginTop: 6,
+              }}>
+                <div><b>Indirizzo:</b> {r.address}</div>
                 {r.website && (
-                  <span>
-                    <b>Sito:</b>{" "}
-                    <a href={r.website} target="_blank" rel="noopener noreferrer">
-                      {r.website}
-                    </a>
-                    <br />
-                  </span>
+                  <div>
+                    <b>Sito:</b> <a href={r.website} target="_blank" rel="noopener noreferrer">{r.website}</a>
+                  </div>
                 )}
-                <b>Tipi:</b> {r.details?.types?.join(", ") || "-"}
+                <div><b>Tipi:</b> {r.types && r.types.join(", ")}</div>
               </div>
             )}
           </li>
