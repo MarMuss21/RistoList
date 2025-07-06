@@ -1,97 +1,56 @@
-import React, { useRef, useEffect, useState } from "react";
-import { addDoc, collection } from "firebase/firestore";
-import { db } from "./firebase";
-import { Autocomplete, useJsApiLoader } from "@react-google-maps/api";
+import React, { useRef, useEffect } from "react";
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyDia3UCyD4p4i8Dc-zS-2Eg9OWbrWeL4KE";
-const libraries = ["places"];
-
-function useCurrentLocation() {
-  const [location, setLocation] = useState(null);
-  useEffect(() => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      pos => setLocation({
-        lat: pos.coords.latitude,
-        lng: pos.coords.longitude,
-      }),
-      () => setLocation(null)
-    );
-  }, []);
-  return location;
-}
-
-const FOOD_TYPES = [
-  "restaurant", "bar", "cafe", "bakery", "meal_takeaway", "meal_delivery"
+const typesFood = [
+  "restaurant",
+  "bar",
+  "cafe",
+  "bakery",
+  "meal_takeaway",
+  "food",
+  "meal_delivery",
 ];
 
-export default function RestaurantSearch({ user, groupId, onAdd }) {
-  const autoRef = useRef();
-  const userLocation = useCurrentLocation();
-  const { isLoaded } = useJsApiLoader({
-    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-    libraries,
-  });
-  const [inputValue, setInputValue] = useState("");
-  const [selectedPlace, setSelectedPlace] = useState(null);
+function RestaurantSearch({ onSelectRestaurant }) {
+  const inputRef = useRef();
 
-  if (!isLoaded) return <div>Caricamento ricerca Google...</div>;
-
-  const handlePlaceChanged = async () => {
-    const place = autoRef.current.getPlace();
-    if (!place || !place.types) return;
-    // Controllo: aggiungi solo se è un esercizio food
-    const isFood = place.types.some(t => FOOD_TYPES.includes(t));
-    if (!isFood) {
-      setSelectedPlace(null);
-      return;
-    }
-    setSelectedPlace(place);
-
-    // Salva direttamente in Firestore
-    await addDoc(collection(db, "restaurants"), {
-      groupId,
-      userId: user.uid,
-      name: place.name,
-      address: place.formatted_address || "",
-      website: place.website || "",
-      details: {
-        place_id: place.place_id || "",
-        types: place.types,
-      },
-      createdAt: new Date()
+  useEffect(() => {
+    if (!window.google || !window.google.maps) return;
+    const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
+      types: ["establishment"],
+      fields: [
+        "place_id", "name", "types", "formatted_address", "vicinity", "geometry", "website"
+      ]
     });
-    setInputValue(""); // svuota il campo ricerca
-    if (onAdd) onAdd(); // per aggiornare lista se serve
-  };
+
+    autocomplete.addListener("place_changed", () => {
+      const place = autocomplete.getPlace();
+      // Solo food-related
+      if (place && place.types && place.types.some((t) => typesFood.includes(t))) {
+        onSelectRestaurant(place);
+      }
+    });
+  }, [onSelectRestaurant]);
+
+  useEffect(() => {
+    if (window.google && window.google.maps && window.google.maps.places) return;
+    const script = document.createElement("script");
+    script.src =
+      `https://maps.googleapis.com/maps/api/js?key=AIzaSyDia3UCyD4p4i8Dc-zS-2Eg9OWbrWeL4KE&libraries=places&language=it`;
+    script.async = true;
+    document.body.appendChild(script);
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
 
   return (
-    <div style={{ marginBottom: 16 }}>
-      <Autocomplete
-        onLoad={ref => (autoRef.current = ref)}
-        onPlaceChanged={handlePlaceChanged}
-        options={{
-          // NB: types qui NON filtra la lista di suggerimenti Google (limite delle API)
-          ...(userLocation && {
-            location: new window.google.maps.LatLng(userLocation.lat, userLocation.lng),
-            radius: 5000,
-          }),
-          componentRestrictions: { country: "it" },
-        }}
-      >
-        <input
-          type="text"
-          placeholder="Cerca locale (solo attività food)"
-          value={inputValue}
-          onChange={e => setInputValue(e.target.value)}
-          style={{
-            width: "100%",
-            padding: 8,
-            fontSize: 16,
-            marginBottom: 10,
-          }}
-        />
-      </Autocomplete>
-    </div>
+    <input
+      ref={inputRef}
+      type="text"
+      placeholder="Cerca locale (solo attività food)"
+      style={{ width: "100%", fontSize: 22, margin: "16px 0", padding: 8 }}
+    />
   );
 }
+
+export default RestaurantSearch;
