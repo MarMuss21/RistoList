@@ -1,4 +1,6 @@
 import React, { useRef, useEffect } from "react";
+import { addDoc, collection } from "firebase/firestore";
+import { db } from "./firebase";
 
 const typesFood = [
   "restaurant",
@@ -10,7 +12,7 @@ const typesFood = [
   "meal_delivery",
 ];
 
-function RestaurantSearch({ onSelectRestaurant }) {
+function RestaurantSearch({ user, groupId }) {
   const inputRef = useRef();
 
   useEffect(() => {
@@ -22,14 +24,31 @@ function RestaurantSearch({ onSelectRestaurant }) {
       ]
     });
 
-    autocomplete.addListener("place_changed", () => {
+    autocomplete.addListener("place_changed", async () => {
       const place = autocomplete.getPlace();
       // Solo food-related
-      if (place && place.types && place.types.some((t) => typesFood.includes(t))) {
-        onSelectRestaurant(place);
+      if (
+        place &&
+        place.types &&
+        place.types.some((t) => typesFood.includes(t)) &&
+        groupId &&
+        user
+      ) {
+        // Salva su Firestore
+        await addDoc(collection(db, "restaurants"), {
+          groupId,
+          userId: user.uid,
+          place_id: place.place_id,
+          name: place.name,
+          address: place.formatted_address || place.vicinity || "",
+          website: place.website || "",
+          types: place.types,
+          createdAt: new Date()
+        });
+        inputRef.current.value = "";
       }
     });
-  }, [onSelectRestaurant]);
+  }, [user, groupId]);
 
   useEffect(() => {
     if (window.google && window.google.maps && window.google.maps.places) return;
