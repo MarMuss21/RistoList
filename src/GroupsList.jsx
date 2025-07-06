@@ -74,13 +74,12 @@ export default function GroupsList({ user }) {
           Aggiungi
         </button>
       </div>
-
       {selectedGroupId && (
         <>
           <RestaurantSearch user={user} groupId={selectedGroupId} />
-          <RestaurantList   user={user} groupId={selectedGroupId} />
+          <RestaurantList   groupId={selectedGroupId} />
         </>
       )}
-</div>
+    </div>
   );
 }
