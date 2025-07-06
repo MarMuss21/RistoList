@@ -1,73 +1,78 @@
-import React, { useState, useRef } from "react";
-import { GoogleMap, LoadScript, StandaloneSearchBox } from "@react-google-maps/api";
-import { collection, addDoc } from "firebase/firestore";
+import React, { useRef, useEffect, useState } from "react";
+import { addDoc, collection } from "firebase/firestore";
 import { db } from "./firebase";
 
-// Inserisci la tua chiave API qui
 const GOOGLE_API_KEY = "AIzaSyDia3UCyD4p4i8Dc-zS-2Eg9OWbrWeL4KE";
 
-const libraries = ["places"];
-
 export default function RestaurantSearch({ user, groupId }) {
-  const [input, setInput] = useState("");
+  const inputRef = useRef(null);
   const [place, setPlace] = useState(null);
-  const searchBoxRef = useRef(null);
 
-  const handlePlacesChanged = () => {
-    const places = searchBoxRef.current.getPlaces();
-    if (places && places.length > 0) {
-      const p = places[0];
-      setPlace({
-        name: p.name,
-        address: p.formatted_address,
-        website: p.website || "",
-      });
-      setInput(p.name);
+  useEffect(() => {
+    // Carica lo script Google Maps Places solo una volta
+    if (!window.google) {
+      const script = document.createElement("script");
+      script.src =
+        `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_API_KEY}&libraries=places`;
+      script.async = true;
+      script.onload = initializeAutocomplete;
+      document.body.appendChild(script);
+    } else {
+      initializeAutocomplete();
     }
-  };
 
-  const handleAddRestaurant = async () => {
-    if (!place) return;
+    function initializeAutocomplete() {
+      if (!inputRef.current) return;
+      const autocomplete = new window.google.maps.places.Autocomplete(
+        inputRef.current,
+        { types: ["establishment"] }
+      );
+      autocomplete.setFields(["place_id", "name", "formatted_address", "website"]);
+      autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+        setPlace(place);
+      });
+    }
+  }, []);
+
+  async function handleAdd() {
+    if (!place || !place.name) return;
     await addDoc(collection(db, "restaurants"), {
       groupId,
       userId: user.uid,
       name: place.name,
-      address: place.address,
-      website: place.website,
+      address: place.formatted_address || "",
+      website: place.website || "",
+      createdAt: new Date()
     });
-    setInput("");
     setPlace(null);
-  };
+    if (inputRef.current) inputRef.current.value = "";
+  }
 
   return (
-    <div>
-      <LoadScript googleMapsApiKey={GOOGLE_API_KEY} libraries={libraries}>
-        <StandaloneSearchBox
-          onLoad={ref => (searchBoxRef.current = ref)}
-          onPlacesChanged={handlePlacesChanged}
-        >
-          <input
-            type="text"
-            placeholder="Cerca ristorante su Google"
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            style={{
-              width: "90%",
-              padding: 8,
-              fontSize: 16,
-              marginBottom: 8,
-            }}
-          />
-        </StandaloneSearchBox>
-      </LoadScript>
+    <div style={{ marginBottom: 16 }}>
+      <input
+        ref={inputRef}
+        type="text"
+        placeholder="Cerca un ristorante (Google)"
+        style={{ width: "60%", padding: 8, marginRight: 8 }}
+      />
+      <button
+        onClick={handleAdd}
+        disabled={!place || !place.name}
+        style={{ padding: "8px 16px" }}
+      >
+        Aggiungi
+      </button>
       {place && (
-        <div style={{ margin: "8px 0", padding: 8, border: "1px solid #eee" }}>
-          <div><b>Nome:</b> {place.name}</div>
-          <div><b>Indirizzo:</b> {place.address}</div>
-          <div><b>Sito web:</b> {place.website || "Non disponibile"}</div>
-          <button onClick={handleAddRestaurant} style={{ marginTop: 8 }}>
-            Aggiungi al gruppo
-          </button>
+        <div style={{ marginTop: 8 }}>
+          <b>Nome:</b> {place.name}<br />
+          <b>Indirizzo:</b> {place.formatted_address || "-"}<br />
+          {place.website && (
+            <>
+              <b>Sito web:</b> <a href={place.website} target="_blank" rel="noopener noreferrer">{place.website}</a>
+            </>
+          )}
         </div>
       )}
     </div>
