@@ -1,110 +1,75 @@
-import React, { useRef, useState } from "react";
-import { LoadScript, Autocomplete } from "@react-google-maps/api";
+import React, { useState, useRef } from "react";
+import { GoogleMap, LoadScript, StandaloneSearchBox } from "@react-google-maps/api";
 import { collection, addDoc } from "firebase/firestore";
 import { db } from "./firebase";
 
-const GOOGLE_API_KEY = "AIzaSyDia3UCyD4p4i8Dc-zS-2Eg9OWbrWeL4KE"; // <-- la tua API Key
+// Inserisci la tua chiave API qui
+const GOOGLE_API_KEY = "AIzaSyDia3UCyD4p4i8Dc-zS-2Eg9OWbrWeL4KE";
 
-export default function RestaurantSearch({ groupId, user }) {
-  const autocompleteRef = useRef(null);
-  const [fields, setFields] = useState({
-    name: "",
-    address: "",
-    website: ""
-  });
-  const [placeSelected, setPlaceSelected] = useState(false);
-  const [loading, setLoading] = useState(false);
+const libraries = ["places"];
 
-  function handlePlaceChanged() {
-    const place = autocompleteRef.current.getPlace();
+export default function RestaurantSearch({ user, groupId }) {
+  const [input, setInput] = useState("");
+  const [place, setPlace] = useState(null);
+  const searchBoxRef = useRef(null);
+
+  const handlePlacesChanged = () => {
+    const places = searchBoxRef.current.getPlaces();
+    if (places && places.length > 0) {
+      const p = places[0];
+      setPlace({
+        name: p.name,
+        address: p.formatted_address,
+        website: p.website || "",
+      });
+      setInput(p.name);
+    }
+  };
+
+  const handleAddRestaurant = async () => {
     if (!place) return;
-
-    setFields({
-      name: place.name || "",
-      address: place.formatted_address || "",
-      website: (place.website || (place.url ? place.url : ""))
-    });
-    setPlaceSelected(true);
-  }
-
-  function handleFieldChange(e) {
-    setFields({ ...fields, [e.target.name]: e.target.value });
-    setPlaceSelected(false);
-  }
-
-  async function handleAddRestaurant(e) {
-    e.preventDefault();
-    if (!fields.name || !fields.address) return;
-
-    setLoading(true);
     await addDoc(collection(db, "restaurants"), {
-      ...fields,
       groupId,
       userId: user.uid,
-      createdAt: new Date()
+      name: place.name,
+      address: place.address,
+      website: place.website,
     });
-    setFields({ name: "", address: "", website: "" });
-    setPlaceSelected(false);
-    setLoading(false);
-  }
+    setInput("");
+    setPlace(null);
+  };
 
   return (
-    <LoadScript googleMapsApiKey={GOOGLE_API_KEY} libraries={["places"]}>
-      <form onSubmit={handleAddRestaurant} style={{ marginBottom: 24 }}>
-        <label style={{ display: "block", marginBottom: 4 }}>
-          Cerca o inserisci un ristorante:
-        </label>
-        <Autocomplete
-          onLoad={ref => (autocompleteRef.current = ref)}
-          onPlaceChanged={handlePlaceChanged}
+    <div>
+      <LoadScript googleMapsApiKey={GOOGLE_API_KEY} libraries={libraries}>
+        <StandaloneSearchBox
+          onLoad={ref => (searchBoxRef.current = ref)}
+          onPlacesChanged={handlePlacesChanged}
         >
           <input
             type="text"
-            name="name"
-            value={fields.name}
-            onChange={handleFieldChange}
-            placeholder="Nome ristorante (scrivi per suggerimenti Google)"
+            placeholder="Cerca ristorante su Google"
+            value={input}
+            onChange={e => setInput(e.target.value)}
             style={{
-              width: "100%",
+              width: "90%",
               padding: 8,
+              fontSize: 16,
               marginBottom: 8,
-              fontWeight: placeSelected ? "bold" : "normal"
             }}
-            autoComplete="off"
           />
-        </Autocomplete>
-        <input
-          type="text"
-          name="address"
-          value={fields.address}
-          onChange={handleFieldChange}
-          placeholder="Indirizzo"
-          style={{ width: "100%", padding: 8, marginBottom: 8 }}
-        />
-        <input
-          type="text"
-          name="website"
-          value={fields.website}
-          onChange={handleFieldChange}
-          placeholder="Sito web (facoltativo)"
-          style={{ width: "100%", padding: 8, marginBottom: 8 }}
-        />
-        <button
-          type="submit"
-          disabled={!fields.name || !fields.address || loading}
-          style={{
-            background: "#222",
-            color: "#fff",
-            border: "none",
-            padding: "8px 20px",
-            borderRadius: 8,
-            cursor: loading ? "not-allowed" : "pointer",
-            fontWeight: 600
-          }}
-        >
-          {loading ? "Aggiungo..." : "Aggiungi ristorante"}
-        </button>
-      </form>
-    </LoadScript>
+        </StandaloneSearchBox>
+      </LoadScript>
+      {place && (
+        <div style={{ margin: "8px 0", padding: 8, border: "1px solid #eee" }}>
+          <div><b>Nome:</b> {place.name}</div>
+          <div><b>Indirizzo:</b> {place.address}</div>
+          <div><b>Sito web:</b> {place.website || "Non disponibile"}</div>
+          <button onClick={handleAddRestaurant} style={{ marginTop: 8 }}>
+            Aggiungi al gruppo
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
