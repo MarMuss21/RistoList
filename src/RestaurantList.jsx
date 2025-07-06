@@ -1,85 +1,54 @@
 import React, { useEffect, useState } from "react";
-import { collection, query, where, onSnapshot, deleteDoc, doc, updateDoc } from "firebase/firestore";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "./firebase";
 
-export default function RestaurantList({ user, groupId }) {
-  const [list, setList] = useState([]);
+export default function RestaurantList({ groupId }) {
+  const [restaurants, setRestaurants] = useState([]);
+  const [selected, setSelected] = useState(null);
 
   useEffect(() => {
-    if (!groupId) return setList([]);
-    const ref = collection(db, "groups", groupId, "restaurants");
-    const q = query(ref, where("userId", "==", user.uid));
-    return onSnapshot(q, snap => {
+    if (!groupId) return setRestaurants([]);
+    const q = query(collection(db, "restaurants"), where("groupId", "==", groupId));
+    const unsub = onSnapshot(q, snap => {
       const arr = [];
       snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
-      setList(arr);
+      setRestaurants(arr);
     });
-  }, [user.uid, groupId]);
+    return () => unsub();
+  }, [groupId]);
 
-  const remove = async (id) => {
-    await deleteDoc(doc(db, "groups", groupId, "restaurants", id));
-  };
-
-  const toggleEdit = (idx) => {
-    setList(list.map((r, i) => i === idx ? { ...r, editing: !r.editing } : r));
-  };
-
-  const saveEdit = async (idx) => {
-    const r = list[idx];
-    await updateDoc(doc(db, "groups", groupId, "restaurants", r.id), {
-      name: r.name,
-      address: r.address,
-      website: r.website
-    });
-    toggleEdit(idx);
-  };
-
-  const onChangeField = (idx, field, value) => {
-    setList(list.map((r, i) => i === idx ? { ...r, [field]: value } : r));
-  };
-
+  if (!groupId) return null;
   return (
-    <div style={{ textAlign: "left", marginTop: "1rem" }}>
-      <h3>Ristoranti</h3>
-      {list.length === 0 && <p>Nessun ristorante aggiunto.</p>}
-      <ul style={{ listStyle: "none", padding: 0 }}>
-        {list.map((r, i) => (
-          <li key={r.id} style={{
-            border: "1px solid #ccc", padding: "8px", marginBottom: "8px",
-            borderRadius: 4, display: "flex", justifyContent: "space-between"
-          }}>
-            {r.editing ? (
-              <div style={{ flex: 1 }}>
-                <input
-                  value={r.name}
-                  onChange={e => onChangeField(i, "name", e.target.value)}
-                  style={{ width: "100%", marginBottom: 4 }}
-                />
-                <input
-                  value={r.address}
-                  onChange={e => onChangeField(i, "address", e.target.value)}
-                  style={{ width: "100%", marginBottom: 4 }}
-                />
-                <input
-                  value={r.website}
-                  onChange={e => onChangeField(i, "website", e.target.value)}
-                  style={{ width: "100%" }}
-                />
-                <button onClick={() => saveEdit(i)} style={{ marginTop: 4 }}>Salva</button>
-              </div>
-            ) : (
-              <div style={{ flex: 1 }}>
-                <b>{r.name}</b><br/>
-                {r.address}<br/>
-                {r.website && <a href={r.website} target="_blank" rel="noreferrer">Sito</a>}
+    <div>
+      <h3>Ristoranti nel gruppo</h3>
+      <ul style={{ padding: 0 }}>
+        {restaurants.map(r => (
+          <li
+            key={r.id}
+            onClick={() => setSelected(selected === r.id ? null : r.id)}
+            style={{
+              cursor: "pointer",
+              fontWeight: selected === r.id ? "bold" : "normal",
+              marginBottom: 4,
+              listStyle: "none"
+            }}
+          >
+            {r.name}
+            {selected === r.id && (
+              <div style={{ marginLeft: 16, fontWeight: "normal", marginTop: 8, marginBottom: 8 }}>
+                <b>Indirizzo:</b> {r.address || "-"} <br />
+                {r.website && (
+                  <span>
+                    <b>Sito:</b>{" "}
+                    <a href={r.website} target="_blank" rel="noopener noreferrer">
+                      {r.website}
+                    </a>
+                    <br />
+                  </span>
+                )}
+                <b>Tipi:</b> {r.details?.types?.join(", ") || "-"}
               </div>
             )}
-            <div style={{ marginLeft: 8, textAlign: "right" }}>
-              <button onClick={() => remove(r.id)} style={{ display: "block", marginBottom: 4 }}>Elimina</button>
-              <button onClick={() => toggleEdit(i)}>
-                {r.editing ? "Annulla" : "Modifica"}
-              </button>
-            </div>
           </li>
         ))}
       </ul>
