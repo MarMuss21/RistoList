@@ -1,77 +1,65 @@
 import React, { useRef, useEffect } from "react";
-import { addDoc, collection } from "firebase/firestore";
-import { db } from "./firebase";
 
-const typesFood = [
-  "restaurant", "bar", "cafe", "bakery", "meal_takeaway", "food", "meal_delivery",
-];
+// TUA API KEY INTEGRATA QUI
+const GOOGLE_API_KEY = "AIzaSyDia3UCyD4p4i8Dc-zS-2Eg9OWbrWeL4KE";
 
-function RestaurantSearch({ user, groupId }) {
+// SOLO tipologie food/bar/cafe
+const allowedTypes = ["restaurant", "bar", "bakery", "cafe", "meal_takeaway", "meal_delivery", "food", "pizzeria", "pub"];
+
+const autocompleteOptions = {
+  types: ["establishment"],
+  componentRestrictions: { country: "it" }
+};
+
+const RestaurantSearch = ({ onSelect }) => {
   const inputRef = useRef();
 
   useEffect(() => {
-    let autocomplete;
-    // FUNZIONE DI AVVIO AUTOCOMPLETE SOLO SE LIBRERIA PRONTA
-    const initAutocomplete = () => {
-      if (!window.google || !window.google.maps || !window.google.maps.places) {
-        console.warn("Google Maps Places API NON caricata!");
-        return;
-      }
-      autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
-        types: ["establishment"],
-        fields: [
-          "place_id", "name", "types", "formatted_address", "vicinity", "geometry", "website"
-        ]
-      });
-      autocomplete.addListener("place_changed", async () => {
-        const place = autocomplete.getPlace();
-        if (
-          place &&
-          place.types &&
-          place.types.some((t) => typesFood.includes(t)) &&
-          groupId &&
-          user
-        ) {
-          await addDoc(collection(db, "restaurants"), {
-            groupId,
-            userId: user.uid,
-            place_id: place.place_id,
-            name: place.name,
-            address: place.formatted_address || place.vicinity || "",
-            website: place.website || "",
-            types: place.types,
-            createdAt: new Date()
-          });
-          inputRef.current.value = "";
-        }
-      });
-    };
-
-    // SE LA LIBRERIA NON ESISTE, LA CARICO
-    if (!window.google || !window.google.maps || !window.google.maps.places) {
+    if (!window.google) {
       const script = document.createElement("script");
-      script.src =
-        `https://maps.googleapis.com/maps/api/js?key=AIzaSyDia3UCyD4p4i8Dc-zS-2Eg9OWbrWeL4KE&libraries=places&language=it`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_API_KEY}&libraries=places&language=it`;
       script.async = true;
-      script.onload = initAutocomplete;
+      script.onload = init;
       document.body.appendChild(script);
-      return () => {
-        document.body.removeChild(script);
-      };
     } else {
-      // GIA' CARICATA
-      initAutocomplete();
+      init();
     }
-  }, [user, groupId]);
+    // eslint-disable-next-line
+  }, []);
+
+  function init() {
+    if (!window.google?.maps?.places || !inputRef.current) return;
+    const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, autocompleteOptions);
+
+    autocomplete.addListener("place_changed", () => {
+      const place = autocomplete.getPlace();
+      // Accetta SOLO attività food
+      if (
+        place.types?.some(t => allowedTypes.includes(t)) &&
+        place.name &&
+        place.formatted_address
+      ) {
+        onSelect({
+          place_id: place.place_id,
+          name: place.name,
+          address: place.formatted_address,
+          website: place.website || ""
+        });
+        inputRef.current.value = "";
+      } else {
+        alert("Seleziona solo un locale food valido (ristoranti, bar, pizzerie ecc)!");
+      }
+    });
+  }
 
   return (
     <input
       ref={inputRef}
       type="text"
       placeholder="Cerca locale (solo attività food)"
-      style={{ width: "100%", fontSize: 22, margin: "16px 0", padding: 8 }}
+      style={{ width: "100%", padding: "0.5rem", margin: "1rem 0", fontSize: "1.1rem" }}
     />
   );
-}
+};
 
 export default RestaurantSearch;
