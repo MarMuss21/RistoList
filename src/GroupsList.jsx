@@ -1,183 +1,131 @@
-import React, { useState } from "react";
-import RestaurantSearch from "./RestaurantSearch";
+import React, { useState, useEffect } from 'react';
+import RestaurantSearch from './RestaurantSearch';
 
-function GroupsList({ user }) {
-  const [groups, setGroups] = useState([
-    // Esempio, poi carica/salva dove vuoi tu
-    // { id: "1", nome: "Amici", ristoranti: [] }
-  ]);
+const LOCAL_STORAGE_KEY = 'groups_data_v2';
+
+const GroupsList = ({ user }) => {
+  const [groups, setGroups] = useState([]);
   const [selectedGroupId, setSelectedGroupId] = useState(null);
-  const [expandedRisto, setExpandedRisto] = useState({}); // Per dettaglio
+  const [newGroup, setNewGroup] = useState('');
 
-  // Gestisci selezione gruppo
-  const selectGroup = (groupId) => setSelectedGroupId(groupId);
+  useEffect(() => {
+    const stored = localStorage.getItem(`${LOCAL_STORAGE_KEY}_${user.uid}`);
+    if (stored) setGroups(JSON.parse(stored));
+  }, [user.uid]);
 
-  // Aggiungi gruppo
-  const [newGroupName, setNewGroupName] = useState("");
+  useEffect(() => {
+    localStorage.setItem(`${LOCAL_STORAGE_KEY}_${user.uid}`, JSON.stringify(groups));
+  }, [groups, user.uid]);
+
   const addGroup = () => {
-    if (newGroupName.trim() !== "") {
-      setGroups([
-        ...groups,
-        {
-          id: Date.now().toString(),
-          nome: newGroupName,
-          ristoranti: [],
-        },
-      ]);
-      setNewGroupName("");
+    if (newGroup.trim()) {
+      setGroups([...groups, { id: Date.now(), name: newGroup.trim(), restaurants: [] }]);
+      setNewGroup('');
     }
   };
 
-  // Elimina gruppo
-  const removeGroup = (id) => setGroups(groups.filter((g) => g.id !== id));
-
-  // Aggiungi ristorante al gruppo selezionato
-  const addRistoToGroup = (place) => {
-    if (!selectedGroupId) {
-      alert("Seleziona prima un gruppo!");
-      return;
-    }
-    setGroups((prev) =>
-      prev.map((g) =>
-        g.id === selectedGroupId
-          ? {
-              ...g,
-              ristoranti: [
-                ...g.ristoranti,
-                {
-                  id: place.place_id,
-                  name: place.name,
-                  indirizzo: place.formatted_address,
-                  sito: place.website,
-                },
-              ],
-            }
-          : g
-      )
-    );
+  const removeGroup = id => {
+    setGroups(groups.filter(g => g.id !== id));
+    if (selectedGroupId === id) setSelectedGroupId(null);
   };
 
-  // Gestione espansione dettagli
-  const toggleRisto = (groupId, ristoId) => {
-    setExpandedRisto((prev) => ({
-      ...prev,
-      [groupId + "_" + ristoId]: !prev[groupId + "_" + ristoId],
+  // AGGIUNGI RISTORANTE (senza doppioni)
+  const addRestaurant = (groupId, restaurant) => {
+    setGroups(groups.map(g => {
+      if (g.id !== groupId) return g;
+      if (g.restaurants.find(r => r.place_id === restaurant.place_id)) {
+        alert("Questo locale è già stato aggiunto al gruppo.");
+        return g;
+      }
+      return { ...g, restaurants: [...g.restaurants, restaurant] };
     }));
   };
 
+  // RIMUOVI ristorante dal gruppo
+  const removeRestaurant = (groupId, placeId) => {
+    setGroups(groups.map(g =>
+      g.id === groupId
+        ? { ...g, restaurants: g.restaurants.filter(r => r.place_id !== placeId) }
+        : g
+    ));
+  };
+
+  const selectedGroup = groups.find(g => g.id === selectedGroupId);
+
   return (
     <div>
-      <div style={{ display: "flex", marginBottom: 16 }}>
-        <input
-          type="text"
-          placeholder="Nuovo gruppo"
-          value={newGroupName}
-          onChange={(e) => setNewGroupName(e.target.value)}
-          style={{ flex: 1, fontSize: 18, padding: 8 }}
-        />
-        <button onClick={addGroup} style={{ marginLeft: 12 }}>
-          Aggiungi
-        </button>
-      </div>
-
-      <div style={{ textAlign: "left", margin: "auto", maxWidth: 800 }}>
-        {groups.length === 0 ? (
-          <b>Nessun gruppo</b>
-        ) : (
-          groups.map((group) => (
-            <div
-              key={group.id}
-              style={{
-                marginBottom: 28,
-                border: "1px solid #ddd",
-                borderRadius: 6,
-                padding: 18,
-                background: selectedGroupId === group.id ? "#f8f8f8" : "#fff",
-              }}
+      <h2>I tuoi gruppi</h2>
+      <div style={{ marginBottom: 16 }}>
+        {groups.map(group => (
+          <div key={group.id}>
+            <strong
+              style={{ cursor: "pointer" }}
+              onClick={() => setSelectedGroupId(group.id)}
             >
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <h2
-                  onClick={() => selectGroup(group.id)}
-                  style={{
-                    margin: 0,
-                    fontWeight: selectedGroupId === group.id ? "bold" : "normal",
-                    cursor: "pointer",
-                  }}
-                >
-                  {group.nome}
-                </h2>
-                <button
-                  style={{
-                    marginLeft: "auto",
-                    background: "#eee",
-                    border: 0,
-                    cursor: "pointer",
-                  }}
-                  onClick={() => removeGroup(group.id)}
-                >
-                  Elimina
-                </button>
-              </div>
-
-              {/* SOLO per il gruppo selezionato */}
-              {selectedGroupId === group.id && (
-                <div style={{ marginTop: 20 }}>
-                  <RestaurantSearch onSelect={addRistoToGroup} />
-
-                  <div style={{ marginTop: 20 }}>
-                    <h3>Ristoranti</h3>
-                    {group.ristoranti.length === 0 ? (
-                      <div>Nessun ristorante aggiunto.</div>
-                    ) : (
-                      <ul style={{ listStyle: "none", padding: 0 }}>
-                        {group.ristoranti.map((risto) => (
-                          <li key={risto.id} style={{ marginBottom: 14 }}>
-                            <span
-                              style={{
-                                cursor: "pointer",
-                                textDecoration: "underline",
-                                color: "#0077cc",
-                                fontWeight: "bold",
-                                fontSize: 18,
-                              }}
-                              onClick={() => toggleRisto(group.id, risto.id)}
-                            >
-                              {risto.name}
-                            </span>
-                            {expandedRisto[group.id + "_" + risto.id] && (
-                              <div
-                                style={{
-                                  background: "#f1f1f1",
-                                  marginTop: 5,
-                                  padding: "10px 18px",
-                                  borderRadius: 6,
-                                }}
-                              >
-                                <div>
-                                  <b>Indirizzo:</b> {risto.indirizzo}
-                                </div>
-                                {risto.sito && (
-                                  <div>
-                                    <b>Sito web:</b>{" "}
-                                    <a href={risto.sito} target="_blank" rel="noreferrer">
-                                      {risto.sito}
-                                    </a>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))
-        )}
+              {group.name}
+            </strong>
+            <button onClick={() => removeGroup(group.id)} style={{ marginLeft: 8 }}>Elimina</button>
+          </div>
+        ))}
+        <input
+          value={newGroup}
+          onChange={e => setNewGroup(e.target.value)}
+          placeholder="Nuovo gruppo"
+        />
+        <button onClick={addGroup}>Aggiungi</button>
       </div>
+
+      {selectedGroup && (
+        <div style={{ textAlign: 'left', marginTop: 24 }}>
+          <h3>{selectedGroup.name}</h3>
+          <RestaurantSearch onSelect={r => addRestaurant(selectedGroup.id, r)} />
+          <ul>
+            {selectedGroup.restaurants.length === 0 && (
+              <li>Nessun ristorante aggiunto.</li>
+            )}
+            {selectedGroup.restaurants.map(r => (
+              <RestaurantItem
+                key={r.place_id}
+                restaurant={r}
+                onDelete={() => removeRestaurant(selectedGroup.id, r.place_id)}
+              />
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
+  );
+};
+
+function RestaurantItem({ restaurant, onDelete }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <li style={{ marginBottom: 8 }}>
+      <span
+        style={{ cursor: "pointer", color: "#1565c0", textDecoration: "underline" }}
+        onClick={() => setOpen(o => !o)}
+      >
+        {restaurant.name}
+      </span>
+      <button style={{ marginLeft: 8, color: 'red' }} onClick={onDelete}>X</button>
+      {open && (
+        <div style={{ marginTop: 6, marginLeft: 14 }}>
+          <div>
+            <strong>Indirizzo:</strong>{" "}
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(restaurant.address)}`}
+              target="_blank" rel="noopener noreferrer"
+            >{restaurant.address}</a>
+          </div>
+          {restaurant.website && (
+            <div>
+              <strong>Sito web:</strong>{" "}
+              <a href={restaurant.website} target="_blank" rel="noopener noreferrer">{restaurant.website}</a>
+            </div>
+          )}
+        </div>
+      )}
+    </li>
   );
 }
 
