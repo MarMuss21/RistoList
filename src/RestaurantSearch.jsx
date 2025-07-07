@@ -39,7 +39,9 @@ const RestaurantSearch = ({ onSelect }) => {
           place_id: place.place_id,
           name: place.name,
           address: place.formatted_address,
-          website: place.website || ""
+          website: place.website || "",
+          lat: place.geometry?.location?.lat(),
+          lng: place.geometry?.location?.lng()
         });
         inputRef.current.value = "";
       } else {
