@@ -3,6 +3,13 @@ import { db } from "./firebase";
 import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import RestaurantSearch from "./RestaurantSearch";
 
+// Funzione per generare link Google Maps preciso
+function getMapsLink(r) {
+  if (r.place_id) return `https://www.google.com/maps/search/?api=1&query=Google&query_place_id=${r.place_id}`;
+  if (r.lat && r.lng) return `https://www.google.com/maps/search/?api=1&query=${r.lat},${r.lng}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.address)}`;
+}
+
 function GroupsList({ user }) {
   const [groups, setGroups] = useState([]);
   const [selectedGroupId, setSelectedGroupId] = useState(null);
@@ -121,7 +128,7 @@ function GroupsList({ user }) {
                     <div>
                       <strong>Indirizzo:</strong>{" "}
                       <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.address)}`}
+                        href={getMapsLink(r)}
                         target="_blank"
                         rel="noopener noreferrer"
                       >{r.address}</a>
