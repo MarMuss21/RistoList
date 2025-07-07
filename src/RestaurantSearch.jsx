@@ -1,9 +1,6 @@
 import React, { useRef, useEffect } from "react";
 
-// TUA API KEY INTEGRATA QUI
 const GOOGLE_API_KEY = "AIzaSyDia3UCyD4p4i8Dc-zS-2Eg9OWbrWeL4KE";
-
-// SOLO tipologie food/bar/cafe
 const allowedTypes = ["restaurant", "bar", "bakery", "cafe", "meal_takeaway", "meal_delivery", "food", "pizzeria", "pub"];
 
 const autocompleteOptions = {
@@ -33,7 +30,6 @@ const RestaurantSearch = ({ onSelect }) => {
 
     autocomplete.addListener("place_changed", () => {
       const place = autocomplete.getPlace();
-      // Accetta SOLO attività food
       if (
         place.types?.some(t => allowedTypes.includes(t)) &&
         place.name &&
