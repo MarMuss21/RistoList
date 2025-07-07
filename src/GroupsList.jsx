@@ -1,53 +1,75 @@
-import React, { useState, useEffect } from 'react';
-import RestaurantSearch from './RestaurantSearch';
+import React, { useState, useEffect } from "react";
+import { db } from "./firebase";
+import { collection, addDoc, onSnapshot, query, where, deleteDoc, doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
+import RestaurantSearch from "./RestaurantSearch";
 
-const LOCAL_STORAGE_KEY = 'groups_data_v2';
-
-const GroupsList = ({ user }) => {
+function GroupsList({ user }) {
   const [groups, setGroups] = useState([]);
   const [selectedGroupId, setSelectedGroupId] = useState(null);
-  const [newGroup, setNewGroup] = useState('');
+  const [newGroupName, setNewGroupName] = useState("");
+  const [expandedRisto, setExpandedRisto] = useState({});
 
+  // CARICA GRUPPI da Firestore
   useEffect(() => {
-    const stored = localStorage.getItem(`${LOCAL_STORAGE_KEY}_${user.uid}`);
-    if (stored) setGroups(JSON.parse(stored));
-  }, [user.uid]);
+    if (!user?.uid) return;
+    const q = query(collection(db, "groups"), where("userId", "==", user.uid));
+    const unsub = onSnapshot(q, snap => {
+      const arr = [];
+      snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+      setGroups(arr);
+    });
+    return () => unsub();
+  }, [user]);
 
-  useEffect(() => {
-    localStorage.setItem(`${LOCAL_STORAGE_KEY}_${user.uid}`, JSON.stringify(groups));
-  }, [groups, user.uid]);
+  // CREA GRUPPO
+  const addGroup = async () => {
+    if (!newGroupName.trim()) return;
+    await addDoc(collection(db, "groups"), {
+      userId: user.uid,
+      name: newGroupName.trim(),
+      restaurants: []
+    });
+    setNewGroupName("");
+  };
 
-  const addGroup = () => {
-    if (newGroup.trim()) {
-      setGroups([...groups, { id: Date.now(), name: newGroup.trim(), restaurants: [] }]);
-      setNewGroup('');
+  // ELIMINA GRUPPO
+  const removeGroup = async (groupId) => {
+    await deleteDoc(doc(db, "groups", groupId));
+    if (selectedGroupId === groupId) setSelectedGroupId(null);
+  };
+
+  // AGGIUNGI RISTORANTE (no doppioni)
+  const addRestaurantToGroup = async (groupId, restaurant) => {
+    const group = groups.find(g => g.id === groupId);
+    if (!group) return;
+    if (group.restaurants?.some(r => r.place_id === restaurant.place_id)) {
+      alert("Questo locale è già stato aggiunto al gruppo!");
+      return;
     }
+    const ref = doc(db, "groups", groupId);
+    await updateDoc(ref, {
+      restaurants: arrayUnion(restaurant)
+    });
   };
 
-  const removeGroup = id => {
-    setGroups(groups.filter(g => g.id !== id));
-    if (selectedGroupId === id) setSelectedGroupId(null);
+  // ELIMINA RISTORANTE
+  const removeRestaurantFromGroup = async (groupId, place_id) => {
+    const group = groups.find(g => g.id === groupId);
+    if (!group) return;
+    const ristoToRemove = group.restaurants.find(r => r.place_id === place_id);
+    if (!ristoToRemove) return;
+    const ref = doc(db, "groups", groupId);
+    await updateDoc(ref, {
+      restaurants: arrayRemove(ristoToRemove)
+    });
   };
 
-  // AGGIUNGI RISTORANTE (senza doppioni)
-  const addRestaurant = (groupId, restaurant) => {
-    setGroups(groups.map(g => {
-      if (g.id !== groupId) return g;
-      if (g.restaurants.find(r => r.place_id === restaurant.place_id)) {
-        alert("Questo locale è già stato aggiunto al gruppo.");
-        return g;
-      }
-      return { ...g, restaurants: [...g.restaurants, restaurant] };
+  // GESTIONE EXPAND DETTAGLI
+  const toggleRisto = (groupId, place_id) => {
+    setExpandedRisto(prev => ({
+      ...prev,
+      [groupId + "_" + place_id]: !prev[groupId + "_" + place_id]
     }));
-  };
-
-  // RIMUOVI ristorante dal gruppo
-  const removeRestaurant = (groupId, placeId) => {
-    setGroups(groups.map(g =>
-      g.id === groupId
-        ? { ...g, restaurants: g.restaurants.filter(r => r.place_id !== placeId) }
-        : g
-    ));
   };
 
   const selectedGroup = groups.find(g => g.id === selectedGroupId);
@@ -68,64 +90,56 @@ const GroupsList = ({ user }) => {
           </div>
         ))}
         <input
-          value={newGroup}
-          onChange={e => setNewGroup(e.target.value)}
+          value={newGroupName}
+          onChange={e => setNewGroupName(e.target.value)}
           placeholder="Nuovo gruppo"
         />
         <button onClick={addGroup}>Aggiungi</button>
       </div>
-
       {selectedGroup && (
         <div style={{ textAlign: 'left', marginTop: 24 }}>
           <h3>{selectedGroup.name}</h3>
-          <RestaurantSearch onSelect={r => addRestaurant(selectedGroup.id, r)} />
+          <RestaurantSearch onSelect={r => addRestaurantToGroup(selectedGroup.id, r)} />
           <ul>
-            {selectedGroup.restaurants.length === 0 && (
+            {(!selectedGroup.restaurants || selectedGroup.restaurants.length === 0) && (
               <li>Nessun ristorante aggiunto.</li>
             )}
-            {selectedGroup.restaurants.map(r => (
-              <RestaurantItem
-                key={r.place_id}
-                restaurant={r}
-                onDelete={() => removeRestaurant(selectedGroup.id, r.place_id)}
-              />
+            {selectedGroup.restaurants?.map(r => (
+              <li key={r.place_id} style={{ marginBottom: 8 }}>
+                <span
+                  style={{ cursor: "pointer", color: "#1976d2", textDecoration: "underline" }}
+                  onClick={() => toggleRisto(selectedGroup.id, r.place_id)}
+                >
+                  {r.name}
+                </span>
+                <button
+                  style={{ marginLeft: 8, color: "red" }}
+                  onClick={() => removeRestaurantFromGroup(selectedGroup.id, r.place_id)}
+                >X</button>
+                {expandedRisto[selectedGroup.id + "_" + r.place_id] && (
+                  <div style={{ marginLeft: 16, marginTop: 8 }}>
+                    <div>
+                      <strong>Indirizzo:</strong>{" "}
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.address)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >{r.address}</a>
+                    </div>
+                    {r.website && (
+                      <div>
+                        <strong>Sito web:</strong>{" "}
+                        <a href={r.website} target="_blank" rel="noopener noreferrer">{r.website}</a>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </li>
             ))}
           </ul>
         </div>
       )}
     </div>
-  );
-};
-
-function RestaurantItem({ restaurant, onDelete }) {
-  const [open, setOpen] = useState(false);
-  return (
-    <li style={{ marginBottom: 8 }}>
-      <span
-        style={{ cursor: "pointer", color: "#1565c0", textDecoration: "underline" }}
-        onClick={() => setOpen(o => !o)}
-      >
-        {restaurant.name}
-      </span>
-      <button style={{ marginLeft: 8, color: 'red' }} onClick={onDelete}>X</button>
-      {open && (
-        <div style={{ marginTop: 6, marginLeft: 14 }}>
-          <div>
-            <strong>Indirizzo:</strong>{" "}
-            <a
-              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(restaurant.address)}`}
-              target="_blank" rel="noopener noreferrer"
-            >{restaurant.address}</a>
-          </div>
-          {restaurant.website && (
-            <div>
-              <strong>Sito web:</strong>{" "}
-              <a href={restaurant.website} target="_blank" rel="noopener noreferrer">{restaurant.website}</a>
-            </div>
-          )}
-        </div>
-      )}
-    </li>
   );
 }
 
